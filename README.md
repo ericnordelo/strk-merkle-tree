@@ -4,7 +4,7 @@
 
 Well suited for airdrops and similar mechanisms in combination with OpenZeppelin Cairo Contracts [`merkle_proof`] utilities.
 
-[`merkle_proof`]: https://docs.openzeppelin.com/cairo-contracts
+[`merkle_proof`]: https://docs.openzeppelin.com/contracts-cairo
 
 ## Quick Start
 
