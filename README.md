@@ -1,4 +1,4 @@
-# `@openzeppelin/merkle-tree`
+# `@ericnordelo/strk-merkle-tree`
 
 **A JavaScript library to generate merkle trees and merkle proofs.**
 
@@ -15,7 +15,7 @@ npm install @ericnordelo/strk-merkle-tree
 ### Building a Tree
 
 ```js
-import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
+import { StandardMerkleTree } from "@ericnordelo/strk-merkle-tree";
 import fs from "fs";
 
 // (1)
@@ -25,7 +25,7 @@ const values = [
 ];
 
 // (2)
-const tree = StandardMerkleTree.of(values, ["address", "uint256"]);
+const tree = StandardMerkleTree.of(values, ["ContractAddress", "uint128"]);
 
 // (3)
 console.log('Merkle Root:', tree.root);
@@ -35,7 +35,7 @@ fs.writeFileSync("tree.json", JSON.stringify(tree.dump()));
 ```
 
 1. Get the values to include in the tree. (Note: Consider reading them from a file.)
-2. Build the merkle tree. Set the encoding to match the values.
+2. Build the merkle tree. Set the types to match the values (for serialization purposes).
 3. Print the merkle root. You will probably publish this value on chain in a smart contract.
 4. Write a file that describes the tree. You will distribute this to users so they can generate proofs for values in the tree.
 
@@ -44,7 +44,7 @@ fs.writeFileSync("tree.json", JSON.stringify(tree.dump()));
 Assume we're looking to generate a proof for the entry that corresponds to address `0x11...11`.
 
 ```js
-import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
+import { StandardMerkleTree } from "@ericnordelo/strk-merkle-tree";
 import fs from "fs";
 
 // (1)
@@ -67,85 +67,110 @@ for (const [i, v] of tree.entries()) {
 
 In practice this might be done in a frontend application prior to submitting the proof on-chain, with the address looked up being that of the connected wallet.
 
-### Validating a Proof in Solidity
+### Validating a Proof in Cairo
 
-Once the proof has been generated, it can be validated in Solidity using [`MerkleProof`] as in the following example:
+Once the proof has been generated, it can be validated in Cairo using [`openzeppelin_merkle_proof`] as in the following example:
 
-```solidity
-pragma solidity ^0.8.4;
+```javascript
+#[starknet::contract]
+pub mod Verifier {
+    use openzeppelin_utils::cryptography::merkle_proof::verify;
+    use openzeppelin_utils::cryptography::hashes::PedersenCHasher;
+    use core::hash::{HashStateTrait, HashStateExTrait};
+    use core::pedersen::{PedersenTrait, pedersen};
+    use starknet::ContractAddress;
 
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-
-contract Verifier {
-    bytes32 private root;
-
-    constructor(bytes32 _root) {
-        // (1)
-        root = _root;
+    #[storage]
+    struct Storage {
+        Verifier_root: felt252
     }
 
-    function verify(
-        bytes32[] memory proof,
-        address addr,
-        uint256 amount
-    ) public {
-        // (2)
-        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(addr, amount))));
-        // (3)
-        require(MerkleProof.verify(proof, root, leaf), "Invalid proof");
-        // (4)
-        // ...
+    #[constructor]
+    fn constructor(ref self: ContractState, root: felt252) {
+        self.Verifier_root.write(root);
+    }
+
+    #[generate_trait]
+    #[abi(per_item)]
+    impl ExternalImpl of ExternalTrait {
+        #[external(v0)]
+        fn verify(
+            self: @ContractState, proof: Span<felt252>, address: ContractAddress, value: u128
+        ) {
+            // Leaves hashes and internal nodes hashes are computed differently
+            // to avoid second pre-image attacks.
+            let leaf_hash = _leaf_hash(address, value);
+
+            assert(
+                verify::<PedersenCHasher>(proof, leaf_hash, self.Verifier_root.read()),
+                'Verifier: invalid proof'
+            );
+        }
+    }
+
+    fn _leaf_hash(address: ContractAddress, value: u128) -> felt252 {
+        // Opinionated leaf hash function
+        let hash_state = PedersenTrait::new(0);
+        pedersen(0, hash_state.update_with(address).update_with(value).update_with(2).finalize())
     }
 }
 ```
 
 1. Store the tree root in your contract.
-2. Compute the [leaf hash](#leaf-hash) for the provided `addr` and `amount` ABI encoded values.
-3. Verify it using [`MerkleProof`]'s `verify` function.
+2. Compute the [leaf hash](#leaf-hash) for the provided `address` and `value` serialized values.
+3. Verify it using [`merkle_proof`]'s `verify` function.
 4. Use the verification to make further operations on the contract. (Consider you may want to add a mechanism to prevent reuse of a leaf).
 
 ## Standard Merkle Trees
 
-This library works on "standard" merkle trees designed for Ethereum smart contracts. We have defined them with a few characteristics that make them secure and good for on-chain verification.
+This library works on "standard" merkle trees designed for Starknet smart contracts. We have defined them with a few characteristics that make them secure and good for on-chain verification.
 
 - The tree is shaped as a [complete binary tree](https://xlinux.nist.gov/dads/HTML/completeBinaryTree.html).
 - The leaves are sorted.
-- The leaves are the result of ABI encoding a series of values.
-- The hash used is Keccak256.
+- The leaves are the result of serializing a series of values.
+- The hash used is Pedersen by default.
 - The leaves are double-hashed[^1] to prevent [second preimage attacks].
 
 [second preimage attacks]: https://flawed.net.nz/2018/02/21/attacking-merkle-trees-with-a-second-preimage-attack/
 
 ## Simple Merkle Trees
 
-The library also supports "simple" merkle trees, which are a simplified version of the standard ones. They are designed to be more flexible and accept arbitrary `bytes32` data as leaves. It keeps the same tree shape and internal pair hashing algorithm.
+The library also supports "simple" merkle trees, which are a simplified version of the standard ones. They are designed to be more flexible and accept arbitrary `felt252` data as leaves. It keeps the same tree shape and internal pair hashing algorithm.
 
-As opposed to standard trees, leaves are not double-hashed. Instead they are ABI encoded to `bytes32` and hashed in pairs inside the tree. This is useful to override the leaf hashing algorithm and use a different one prior to building the tree.
+As opposed to standard trees, leaves are not double-hashed. Instead they are hashed in pairs inside the tree. This is useful to override the leaf hashing algorithm and use a different one prior to building the tree.
 
 Users of tooling that produced trees without double leaf hashing can use this feature to build a representation of the tree in JavaScript. We recommend this approach exclusively for trees that are already built on-chain. Otherwise the standard tree may be a better fit.
 
 ```typescript
-import { SimpleMerkleTree } from '@openzeppelin/merkle-tree';
-import keccak256 from '@ethersproject/keccak256';
+import { SimpleMerkleTree } from '@ericnordelo/strk-merkle-tree';
+import { hash } from 'starknet';
 
 // (1)
-const tree = SimpleMerkleTree.of([keccak256('Value 1'), keccak256('Value 2')]);
+const tree = SimpleMerkleTree.of([
+  hash.computePoseidonHashOnElements([1, 2]),
+  hash.computePoseidonHashOnElements([3, 4])
+]);
 
 // (2)
 // ...
 ```
 
-1. Use a custom leaf hashing algorithm to produce `bytes32` values for the tree.
+1. Use a custom leaf hashing algorithm to produce `felt252` values for the tree.
 2. The Simple Merkle Tree share the same API as Standard Merkle Tree.
 
 ## Advanced usage
 
 ### Leaf Hash
 
-The Standard Merkle Tree uses an opinionated double leaf hashing algorithm. For example, a leaf in the tree with value `[addr, amount]` can be computed in Solidity as follows:
+The Standard Merkle Tree uses an opinionated double leaf hashing algorithm. For example, a leaf in the tree with value `[addr, value]` can be computed in Cairo as follows:
 
-```solidity
-bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(addr, amount))));
+```javascript
+let leaf_hash = pedersen(0, hash_state
+  .update_with(addr)
+  .update_with(value)
+  .update(2)
+  .finalize()
+)
 ```
 
 This is an opinionated design that we believe will offer the best out of the box experience for most users. However, there are advanced use case where a different leaf hashing algorithm may be needed. For those, the `SimpleMerkleTree` can be used to build a tree with custom leaf hashing.
@@ -154,7 +179,7 @@ This is an opinionated design that we believe will offer the best out of the box
 
 Each leaf of a merkle tree can be proven individually. The relative ordering of leaves is mostly irrelevant when the only objective is to prove the inclusion of individual leaves in the tree. Proving multiple leaves at once is however a little bit more difficult.
 
-This library proposes a mechanism to prove (and verify) that sets of leaves are included in the tree. These "multiproofs" can also be verified onchain using the implementation available in `@openzeppelin/contracts`. This mechanism requires the leaves to be ordered respective to their position in the tree. For example, if the tree leaves are (in hex form) `[ 0xAA...AA, 0xBB...BB, 0xCC...CC, 0xDD...DD]`, then you'd be able to prove `[0xBB...BB, 0xDD...DD]` as a subset of the leaves, but not `[0xDD...DD, 0xBB...BB]`.
+This library proposes a mechanism to prove (and verify) that sets of leaves are included in the tree. These "multiproofs" can also be verified onchain using the implementation available in `openzeppelin_utils`. This mechanism requires the leaves to be ordered respective to their position in the tree. For example, if the tree leaves are (in hex form) `[ 0xAA...AA, 0xBB...BB, 0xCC...CC, 0xDD...DD]`, then you'd be able to prove `[0xBB...BB, 0xDD...DD]` as a subset of the leaves, but not `[0xDD...DD, 0xBB...BB]`.
 
 Since this library knows the entire tree, you can generate a multiproof with the requested leaves in any order. The library will re-order them so that they appear inside the proof in the correct order. The `MultiProof` object returned by `tree.getMultiProof(...)` will have the leaves ordered according to their position in the tree, and not in the order in which you provided them.
 
@@ -173,16 +198,16 @@ However, some trees are constructed iteratively from unsorted data, causing the 
 ### `StandardMerkleTree`
 
 ```typescript
-import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
+import { StandardMerkleTree } from "@ericnordelo/strk-merkle-tree";
 ```
 
 #### `StandardMerkleTree.of`
 
 ```typescript
-const tree = StandardMerkleTree.of([[alice, '100'], [bob, '200']], ['address', 'uint'], options);
+const tree = StandardMerkleTree.of([[alice, '100'], [bob, '200']], ['ContractAddress', 'u8'], options);
 ```
 
-Creates a standard merkle tree out of an array of the elements in the tree, along with their types for ABI encoding. For documentation on the syntax of the types, including how to encode structs, refer to the documentation for Ethers.js's [`AbiCoder`](https://docs.ethers.org/v5/api/utils/abi/coder/#AbiCoder-encode).
+Creates a standard merkle tree out of an array of the elements in the tree, along with their types for serialization.
 
 #### `StandardMerkleTree.load`
 
@@ -195,7 +220,7 @@ Loads the tree from a description previously returned by `tree.dump`.
 #### `StandardMerkleTree.verify`
 
 ```typescript
-const verified = StandardMerkleTree.verify(root, ['address', 'uint'], [alice, '100'], proof);
+const verified = StandardMerkleTree.verify(root, ['ContractAddress', 'u8'], [alice, '100'], proof);
 ```
 
 Returns a boolean that is `true` when the proof verifies that the value is contained in the tree given only the proof, merkle root, and encoding.
@@ -211,7 +236,7 @@ Returns a boolean that is `true` when the multiproof verifies that all the value
 ### `SimpleMerkleTree`
 
 ```typescript
-import { SimpleMerkleTree } from '@openzeppelin/merkle-tree';
+import { SimpleMerkleTree } from '@ericnordelo/strk-merkle-tree';
 ```
 
 #### `SimpleMerkleTree.of`
@@ -220,7 +245,7 @@ import { SimpleMerkleTree } from '@openzeppelin/merkle-tree';
 const tree = SimpleMerkleTree.of([hashFn('Value 1'), hashFn('Value 2')]);
 ```
 
-The `hashFn` is a custom cryptographic leaf hashing algorithm that returns `bytes32` values. The tree will be built using these values as leaves. The function should be different to the internal hashing pair algorithm used by the tree.
+The `hashFn` is a custom cryptographic leaf hashing algorithm that returns `felt252` values. The tree will be built using these values as leaves. The function should be different to the internal hashing pair algorithm used by the tree.
 
 #### `SimpleMerkleTree.load`
 
@@ -236,7 +261,7 @@ Same as `StandardMerkleTree.load`.
 const verified = SimpleMerkleTree.verify(root, hashFn('Value 1'), proof);
 ```
 
-Same as `StandardMerkleTree.verify`, but using raw `bytes32` values.
+Same as `StandardMerkleTree.verify`, but using raw `felt252` values.
 
 #### `SimpleMerkleTree.verifyMultiProof`
 
@@ -348,10 +373,15 @@ const leaf = tree.leafHash(value); // e.g. [alice, '100']
 
 Returns the leaf hash of the value, defined per tree type.
 
-In case of the `StandardMerkleTree`, it corresponds to the following expression in Solidity:
+In case of the `StandardMerkleTree`, it corresponds to the following expression in Cairo:
 
-```solidity
-bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(alice, 100))));
+```javascript
+let leaf_hash = pedersen(0, hash_state
+  .update_with(alice)
+  .update_with(100)
+  .update(2)
+  .finalize()
+)
 ```
 
-[^1]: The underlying reason for hashing the leaves twice is to prevent the leaf values from being 64 bytes long _prior_ to hashing. Otherwise, the concatenation of a sorted pair of internal nodes in the Merkle tree could be reinterpreted as a leaf value. See [here](https://github.com/OpenZeppelin/openzeppelin-contracts/issues/3091) for more details.
+[^1]: The underlying reason for hashing the leaves twice is to prevent using the same algorithm for hashing leaves and internal nodes. Otherwise, the concatenation of a sorted pair of internal nodes in the Merkle tree could be reinterpreted as a leaf value. See [here](https://github.com/OpenZeppelin/openzeppelin-contracts/issues/3091) for more details.
