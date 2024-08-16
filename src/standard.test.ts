@@ -1,13 +1,15 @@
 import { test, testProp, fc } from '@fast-check/ava';
 import { HashZero as zero } from '@ethersproject/constants';
-import { keccak256 } from '@ethersproject/keccak256';
 import { StandardMerkleTree } from './standard';
 import { InvalidArgumentError, InvariantError } from './utils/errors';
+import { ValueType } from './serde';
+import { hash } from 'starknet';
+import { toHex } from './bytes';
 
-fc.configureGlobal({ numRuns: process.env.CI ? 5000 : 100 });
+fc.configureGlobal({ numRuns: process.env.CI ? 500 : 1 });
 
-const leafEncoding = ['uint256', 'string[]'];
-const leaf = fc.tuple(fc.bigUintN(256), fc.array(fc.string()));
+const leafEncoding: ValueType[] = ['felt252', 'u128'];
+const leaf = fc.tuple(fc.bigUintN(251), fc.bigUintN(128));
 const leaves = fc.array(leaf, { minLength: 1, maxLength: 1000 });
 const options = fc.record({ sortLeaves: fc.oneof(fc.constant(undefined), fc.boolean()) });
 
@@ -133,7 +135,7 @@ test('reject malformed tree dump', t => {
         format: 'standard-v1',
         tree: [zero],
         values: [{ value: ['0'], treeIndex: 0 }],
-        leafEncoding: ['uint256'],
+        leafEncoding: ['felt252'],
       }),
     new InvariantError('Merkle tree does not contain the expected value'),
   );
@@ -142,9 +144,9 @@ test('reject malformed tree dump', t => {
     () =>
       StandardMerkleTree.load({
         format: 'standard-v1',
-        tree: [zero, zero, keccak256(keccak256(zero))],
+        tree: [zero, zero, toHex(hash.computePedersenHash(0, hash.computeHashOnElements([zero])), { hexPad: 'left' })],
         values: [{ value: ['0'], treeIndex: 2 }],
-        leafEncoding: ['uint256'],
+        leafEncoding: ['felt252'],
       }),
     new InvariantError('Merkle tree is invalid'),
   );

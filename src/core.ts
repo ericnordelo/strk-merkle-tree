@@ -1,4 +1,4 @@
-import { BytesLike, HexString, toHex, toBytes, compare } from './bytes';
+import { BytesLike, HexString, toHex, compare } from './bytes';
 import { NodeHash, standardNodeHash } from './hashes';
 import { invariant, throwError, validateArgument } from './utils/errors';
 
@@ -10,7 +10,7 @@ const siblingIndex = (i: number) => (i > 0 ? i - (-1) ** (i % 2) : throwError('R
 const isTreeNode = (tree: unknown[], i: number) => i >= 0 && i < tree.length;
 const isInternalNode = (tree: unknown[], i: number) => isTreeNode(tree, leftChildIndex(i));
 const isLeafNode = (tree: unknown[], i: number) => isTreeNode(tree, i) && !isInternalNode(tree, i);
-const isValidMerkleNode = (node: BytesLike) => toBytes(node).length === 32;
+const isValidMerkleNode = (node: BytesLike) => node !== undefined;
 
 const checkLeafNode = (tree: unknown[], i: number) => void (isLeafNode(tree, i) || throwError('Index is not a leaf'));
 const checkValidMerkleNode = (node: BytesLike) =>
@@ -46,7 +46,6 @@ export function getProof(tree: BytesLike[], index: number): HexString[] {
 
 export function processProof(leaf: BytesLike, proof: BytesLike[], nodeHash: NodeHash = standardNodeHash): HexString {
   checkValidMerkleNode(leaf);
-  proof.forEach(checkValidMerkleNode);
 
   return toHex(proof.reduce(nodeHash, leaf));
 }

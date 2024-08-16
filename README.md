@@ -2,17 +2,14 @@
 
 **A JavaScript library to generate merkle trees and merkle proofs.**
 
-Well suited for airdrops and similar mechanisms in combination with OpenZeppelin Contracts [`MerkleProof`] utilities.
+Well suited for airdrops and similar mechanisms in combination with OpenZeppelin Cairo Contracts [`merkle_proof`] utilities.
 
-[`MerkleProof`]: https://docs.openzeppelin.com/contracts/4.x/api/utils#MerkleProof
-
-[![NPM Package](https://img.shields.io/npm/v/@openzeppelin/merkle-tree.svg)](https://www.npmjs.org/package/@openzeppelin/merkle-tree)
-[![Coverage](https://codecov.io/github/OpenZeppelin/merkle-tree/branch/master/graph/badge.svg?token=1JMTIEYRZK)](https://codecov.io/github/OpenZeppelin/merkle-tree)
+[`merkle_proof`]: https://docs.openzeppelin.com/cairo-contracts
 
 ## Quick Start
 
 ```
-npm install @openzeppelin/merkle-tree
+npm install @ericnordelo/strk-merkle-tree
 ```
 
 ### Building a Tree

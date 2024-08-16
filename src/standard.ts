@@ -4,24 +4,25 @@ import { MerkleTreeData, MerkleTreeImpl } from './merkletree';
 import { MerkleTreeOptions } from './options';
 import { standardLeafHash } from './hashes';
 import { validateArgument } from './utils/errors';
+import { ValueType } from './serde';
 
 export interface StandardMerkleTreeData<T extends any[]> extends MerkleTreeData<T> {
   format: 'standard-v1';
-  leafEncoding: string[];
+  leafEncoding: ValueType[];
 }
 
 export class StandardMerkleTree<T extends any[]> extends MerkleTreeImpl<T> {
   protected constructor(
     protected readonly tree: HexString[],
     protected readonly values: StandardMerkleTreeData<T>['values'],
-    protected readonly leafEncoding: string[],
+    protected readonly leafEncoding: ValueType[],
   ) {
     super(tree, values, leaf => standardLeafHash(leafEncoding, leaf));
   }
 
   static of<T extends any[]>(
     values: T[],
-    leafEncoding: string[],
+    leafEncoding: ValueType[],
     options: MerkleTreeOptions = {},
   ): StandardMerkleTree<T> {
     // use default nodeHash (standardNodeHash)
@@ -38,14 +39,14 @@ export class StandardMerkleTree<T extends any[]> extends MerkleTreeImpl<T> {
     return tree;
   }
 
-  static verify<T extends any[]>(root: BytesLike, leafEncoding: string[], leaf: T, proof: BytesLike[]): boolean {
+  static verify<T extends any[]>(root: BytesLike, leafEncoding: ValueType[], leaf: T, proof: BytesLike[]): boolean {
     // use default nodeHash (standardNodeHash) for processProof
     return toHex(root) === processProof(standardLeafHash(leafEncoding, leaf), proof);
   }
 
   static verifyMultiProof<T extends any[]>(
     root: BytesLike,
-    leafEncoding: string[],
+    leafEncoding: ValueType[],
     multiproof: MultiProof<BytesLike, T>,
   ): boolean {
     // use default nodeHash (standardNodeHash) for processMultiProof

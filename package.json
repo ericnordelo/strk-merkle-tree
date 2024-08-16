@@ -29,10 +29,12 @@
     "@ethersproject/abi": "^5.7.0",
     "@ethersproject/bytes": "^5.7.0",
     "@ethersproject/constants": "^5.7.0",
-    "@ethersproject/keccak256": "^5.7.0"
+    "@ethersproject/keccak256": "^5.7.0",
+    "starknet": "^6.11.0"
   },
   "devDependencies": {
     "@fast-check/ava": "^1.2.1",
+    "@types/node": "^22.3.0",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
     "@typescript-eslint/parser": "^7.1.0",
     "ava": "^6.1.1",

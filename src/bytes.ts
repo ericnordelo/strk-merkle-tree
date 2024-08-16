@@ -1,4 +1,5 @@
 import type { BytesLike } from '@ethersproject/bytes';
+
 type HexString = string;
 
 import { arrayify as toBytes, hexlify as toHex, concat } from '@ethersproject/bytes';

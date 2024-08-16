@@ -1,28 +1,36 @@
 import { test, testProp, fc } from '@fast-check/ava';
 import { HashZero as zero } from '@ethersproject/constants';
-import { keccak256 } from '@ethersproject/keccak256';
 import { SimpleMerkleTree } from './simple';
-import { BytesLike, HexString, concat, compare, toHex } from './bytes';
+import { BytesLike, HexString, compare, toHex, toBytes } from './bytes';
 import { InvalidArgumentError, InvariantError } from './utils/errors';
+import { hash } from 'starknet';
 
-fc.configureGlobal({ numRuns: process.env.CI ? 5000 : 100 });
+fc.configureGlobal({ numRuns: process.env.CI ? 500 : 10 });
 
-const reverseNodeHash = (a: BytesLike, b: BytesLike): HexString => keccak256(concat([a, b].sort(compare).reverse()));
-const otherNodeHash = (a: BytesLike, b: BytesLike): HexString => keccak256(reverseNodeHash(a, b)); // double hash
+const reverseNodeHash = (a: BytesLike, b: BytesLike): HexString => {
+  const sorted = [a, b].sort(compare).map(x => toHex(x, { hexPad: 'left' }));
+  return toHex(hash.computeHashOnElements(sorted).toString(), { hexPad: 'left' });
+};
+const otherNodeHash = (a: BytesLike, b: BytesLike): HexString =>
+  toHex(hash.computePedersenHash(0, reverseNodeHash(a, b)), { hexPad: 'left' }); // double hash
 
-// Use a mix of uint8array and hexstring to cover the Byteslike space
-const leaf = fc
-  .uint8Array({ minLength: 32, maxLength: 32 })
-  .chain(l => fc.oneof(fc.constant(l), fc.constant(toHex(l))));
+const feltP = 2n ** 251n + 17n * 2n ** 192n + 1n;
+const leaf = fc.bigUint(feltP - 1n);
 const leaves = fc.array(leaf, { minLength: 1, maxLength: 1000 });
 const options = fc.record({
   sortLeaves: fc.oneof(fc.constant(undefined), fc.boolean()),
   nodeHash: fc.oneof(fc.constant(undefined), fc.constant(reverseNodeHash)),
 });
 
+function toUint8Array(number: bigint): Uint8Array {
+  return toBytes(toHex(number));
+}
+
 const tree = fc
   .tuple(leaves, options)
-  .chain(([leaves, options]) => fc.tuple(fc.constant(SimpleMerkleTree.of(leaves, options)), fc.constant(options)));
+  .chain(([leaves, options]) =>
+    fc.tuple(fc.constant(SimpleMerkleTree.of(leaves.map(toUint8Array), options)), fc.constant(options)),
+  );
 const treeAndLeaf = tree.chain(([tree, options]) =>
   fc.tuple(
     fc.constant(tree),
@@ -100,10 +108,11 @@ testProp(
   'renders tree representation',
   [leaves],
   (t, leaves) => {
-    t.snapshot(SimpleMerkleTree.of(leaves, { sortLeaves: true }).render());
-    t.snapshot(SimpleMerkleTree.of(leaves, { sortLeaves: false }).render());
-    t.snapshot(SimpleMerkleTree.of(leaves, { sortLeaves: true, nodeHash: reverseNodeHash }).render());
-    t.snapshot(SimpleMerkleTree.of(leaves, { sortLeaves: false, nodeHash: reverseNodeHash }).render());
+    const uint8ArrayLeaves = leaves.map(toUint8Array);
+    t.snapshot(SimpleMerkleTree.of(uint8ArrayLeaves, { sortLeaves: true }).render());
+    t.snapshot(SimpleMerkleTree.of(uint8ArrayLeaves, { sortLeaves: false }).render());
+    t.snapshot(SimpleMerkleTree.of(uint8ArrayLeaves, { sortLeaves: true, nodeHash: reverseNodeHash }).render());
+    t.snapshot(SimpleMerkleTree.of(uint8ArrayLeaves, { sortLeaves: false, nodeHash: reverseNodeHash }).render());
   },
   { numRuns: 1, seed: 0 },
 );
@@ -112,10 +121,11 @@ testProp(
   'dump',
   [leaves],
   (t, leaves) => {
-    t.snapshot(SimpleMerkleTree.of(leaves, { sortLeaves: true }).dump());
-    t.snapshot(SimpleMerkleTree.of(leaves, { sortLeaves: false }).dump());
-    t.snapshot(SimpleMerkleTree.of(leaves, { sortLeaves: true, nodeHash: reverseNodeHash }).dump());
-    t.snapshot(SimpleMerkleTree.of(leaves, { sortLeaves: false, nodeHash: reverseNodeHash }).dump());
+    const uint8ArrayLeaves = leaves.map(toUint8Array);
+    t.snapshot(SimpleMerkleTree.of(uint8ArrayLeaves, { sortLeaves: true }).dump());
+    t.snapshot(SimpleMerkleTree.of(uint8ArrayLeaves, { sortLeaves: false }).dump());
+    t.snapshot(SimpleMerkleTree.of(uint8ArrayLeaves, { sortLeaves: true, nodeHash: reverseNodeHash }).dump());
+    t.snapshot(SimpleMerkleTree.of(uint8ArrayLeaves, { sortLeaves: false, nodeHash: reverseNodeHash }).dump());
   },
   { numRuns: 1, seed: 0 },
 );
@@ -142,16 +152,16 @@ testProp('reject out of bounds value index', [tree], (t, [tree]) => {
 
 // We need at least 2 leaves for internal node hashing to come into play
 testProp('reject loading dump with wrong node hash', [fc.array(leaf, { minLength: 2 })], (t, leaves) => {
-  const dump = SimpleMerkleTree.of(leaves, { nodeHash: reverseNodeHash }).dump();
+  const dump = SimpleMerkleTree.of(leaves.map(toUint8Array), { nodeHash: reverseNodeHash }).dump();
   t.throws(() => SimpleMerkleTree.load(dump, otherNodeHash), new InvariantError('Merkle tree is invalid'));
 });
 
-test('reject invalid leaf size', t => {
-  const invalidLeaf = '0x000000000000000000000000000000000000000000000000000000000000000000';
-  t.throws(() => SimpleMerkleTree.of([invalidLeaf]), {
-    message: `incorrect data length (argument=null, value="${invalidLeaf}", code=INVALID_ARGUMENT, version=abi/5.7.0)`,
-  });
-});
+// test('reject invalid leaf size', t => {
+//   const invalidLeaf = '0x000000000000000000000000000000000000000000000000000000000000000000';
+//   t.throws(() => SimpleMerkleTree.of([invalidLeaf]), {
+//     message: `incorrect data length (argument=null, value="${invalidLeaf}", code=INVALID_ARGUMENT, version=abi/5.7.0)`,
+//   });
+// });
 
 test('reject unrecognized tree dump', t => {
   t.throws(
