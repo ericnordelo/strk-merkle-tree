@@ -23,7 +23,7 @@
     "!**/*.test.*"
   ],
   "keywords": [],
-  "author": "Francisco Giordano <fg@frang.io>",
+  "author": "Francisco Giordano<fg@frang.io>",
   "license": "MIT",
   "dependencies": {
     "@ethersproject/abi": "^5.7.0",
