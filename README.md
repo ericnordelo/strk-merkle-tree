@@ -1,10 +1,11 @@
 # `@ericnordelo/strk-merkle-tree`
 
-**A JavaScript library to generate merkle trees and merkle proofs.**
+**A JavaScript library to generate merkle trees and merkle proofs based on [`@openzeppelin/merkle-tree`].**
 
 Well suited for airdrops and similar mechanisms in combination with OpenZeppelin Cairo Contracts [`merkle_proof`] utilities.
 
 [`merkle_proof`]: https://docs.openzeppelin.com/contracts-cairo
+[`@openzeppelin/merkle-tree`]: https://github.com/OpenZeppelin/merkle-tree
 
 [![Coverage](https://codecov.io/gh/ericnordelo/strk-merkle-tree/graph/badge.svg?token=NJIA9AXN32)](https://codecov.io/gh/ericnordelo/strk-merkle-tree)
 
