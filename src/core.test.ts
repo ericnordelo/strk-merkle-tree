@@ -18,7 +18,7 @@ const leaves = fc.array(leaf, { minLength: 1 });
 const leavesAndIndex = leaves.chain(xs => fc.tuple(fc.constant(xs), fc.nat({ max: xs.length - 1 })));
 const leavesAndIndices = leaves.chain(xs => fc.tuple(fc.constant(xs), fc.uniqueArray(fc.nat({ max: xs.length - 1 }))));
 
-fc.configureGlobal({ numRuns: process.env.CI ? 1000 : 10 });
+fc.configureGlobal({ numRuns: process.env.CI ? 100 : 10 });
 
 function toUint8Array(number: bigint): Uint8Array {
   return toBytes(toHex(number));

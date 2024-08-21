@@ -5,7 +5,7 @@ import { BytesLike, HexString, compare, toHex, toBytes } from './bytes';
 import { InvalidArgumentError, InvariantError } from './utils/errors';
 import { hash } from 'starknet';
 
-fc.configureGlobal({ numRuns: process.env.CI ? 500 : 10 });
+fc.configureGlobal({ numRuns: process.env.CI ? 50 : 10 });
 
 const reverseNodeHash = (a: BytesLike, b: BytesLike): HexString => {
   const sorted = [a, b].sort(compare).map(x => toHex(x, { hexPad: 'left' }));

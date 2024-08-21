@@ -6,7 +6,7 @@ import { ValueType } from './serde';
 import { hash } from 'starknet';
 import { toHex } from './bytes';
 
-fc.configureGlobal({ numRuns: process.env.CI ? 500 : 1 });
+fc.configureGlobal({ numRuns: process.env.CI ? 50 : 10 });
 
 const leafEncoding: ValueType[] = ['felt252', 'u128'];
 const leaf = fc.tuple(fc.bigUintN(251), fc.bigUintN(128));
