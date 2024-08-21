@@ -1,8 +1,8 @@
 {
-  "name": "@openzeppelin/merkle-tree",
-  "version": "1.0.7",
+  "name": "@ericnordelo/strk-merkle-tree",
+  "version": "1.0.0",
   "description": "Utilities to work with merkle trees",
-  "repository": "github:OpenZeppelin/merkle-tree",
+  "repository": "github:ericnordelo/strk-merkle-tree",
   "main": "dist/index.js",
   "scripts": {
     "prepublishOnly": "npm run clean",
