@@ -10,7 +10,8 @@
     "noUncheckedIndexedAccess": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "skipLibCheck": true
   },
   "include": [
     "src/**/*"
