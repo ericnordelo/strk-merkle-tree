@@ -28,7 +28,7 @@ const values = [
 ];
 
 // (2)
-const tree = StandardMerkleTree.of(values, ["ContractAddress", "uint128"]);
+const tree = StandardMerkleTree.of(values, ["ContractAddress", "u128"]);
 
 // (3)
 console.log('Merkle Root:', tree.root);
