@@ -7,8 +7,6 @@ Well suited for airdrops and similar mechanisms in combination with OpenZeppelin
 [`merkle_proof`]: https://docs.openzeppelin.com/contracts-cairo
 [`@openzeppelin/merkle-tree`]: https://github.com/OpenZeppelin/merkle-tree
 
-[![Coverage](https://codecov.io/gh/ericnordelo/strk-merkle-tree/graph/badge.svg?token=NJIA9AXN32)](https://codecov.io/gh/ericnordelo/strk-merkle-tree)
-
 ## Quick Start
 
 ```
