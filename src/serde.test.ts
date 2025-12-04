@@ -5,7 +5,7 @@ import { paddedHex } from './utils/common';
 const feltP = 2n ** 251n + 17n * 2n ** 192n + 1n;
 
 function bigint_to_hex(n: bigint): string {
-  return paddedHex(n.toString(16));
+  return paddedHex(`0x${n.toString(16)}`);
 }
 
 test('serialize bool', t => {
