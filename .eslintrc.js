@@ -34,5 +34,12 @@ module.exports = {
         sourceType: 'module',
       },
     },
+    {
+      files: ['test-project/**/*.js'],
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: 2022,
+      },
+    },
   ],
 };

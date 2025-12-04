@@ -1,5 +1,6 @@
 import { toHex } from '../bytes';
 
-export function paddedHex(value: string): string {
-  return toHex(value, { allowMissingPrefix: true, hexPad: 'left' });
+export function paddedHex(value: string | number | bigint): string {
+  // Convert to BigInt first so decimal strings are interpreted correctly.
+  return toHex(BigInt(value), { hexPad: 'left' });
 }
