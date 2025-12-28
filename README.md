@@ -136,21 +136,22 @@ This library works on "standard" merkle trees designed for Starknet smart contra
 
 ## Simple Merkle Trees
 
-The library also supports "simple" merkle trees, which are a simplified version of the standard ones. They are designed to be more flexible and accept arbitrary `felt252` data as leaves. It keeps the same tree shape and internal pair hashing algorithm.
+The library also supports "simple" merkle trees, which are a simplified version of the standard ones. They are designed to be more flexible and accept arbitrary `felt252` data as leaves. It keeps the same tree shape and internal pair hashing algorithm (Pedersen by default, configurable to Poseidon via `nodeHash` option).
+
 
 As opposed to standard trees, leaves are not double-hashed. Instead they are hashed in pairs inside the tree. This is useful to override the leaf hashing algorithm and use a different one prior to building the tree.
 
 Users of tooling that produced trees without double leaf hashing can use this feature to build a representation of the tree in JavaScript. We recommend this approach exclusively for trees that are already built on-chain. Otherwise the standard tree may be a better fit.
 
 ```typescript
-import { SimpleMerkleTree } from '@ericnordelo/strk-merkle-tree';
+import { SimpleMerkleTree,poseidonNodeHash } from '@ericnordelo/strk-merkle-tree';
 import { hash } from 'starknet';
 
 // (1)
 const tree = SimpleMerkleTree.of([
   hash.computePoseidonHashOnElements([1, 2]),
   hash.computePoseidonHashOnElements([3, 4])
-]);
+], { nodeHash: poseidonNodeHash }); // Optional: use Poseidon for internal nodes
 
 // (2)
 // ...
